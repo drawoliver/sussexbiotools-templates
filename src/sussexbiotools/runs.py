@@ -1,4 +1,4 @@
-# Copied from the sussexbiotools platform at commit d2e18a9. Do not edit.
+# Copied from the sussexbiotools platform at commit 37d69ba. Do not edit.
 """Run folders: the history, the provenance and the hand-off between tools.
 
 Every run is one folder under the runs directory:
@@ -24,10 +24,11 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 import traceback
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -322,3 +323,130 @@ def log_tail(run_id: str, lines: int = 200) -> str:
     if not path.is_file():
         return ""
     return "\n".join(path.read_text(errors="replace").splitlines()[-lines:])
+
+
+# --------------------------------------------------------------------------
+# Deleting runs
+#
+# Deleting moves a run into the bin (<runs>/.trash), where it is out of every
+# list and cannot be used as an input. It can be restored until it is
+# purged: on request, or automatically after the bin's retention period.
+# Every action is appended to <runs>/.deletions.log with who and when.
+# --------------------------------------------------------------------------
+
+TRASH = ".trash"
+DELETIONS_LOG = ".deletions.log"
+
+
+def trash_dir() -> Path:
+    path = runs_dir() / TRASH
+    path.mkdir(exist_ok=True)
+    return path
+
+
+def _check_run_id(run_id: str) -> None:
+    """Refuse anything that is not a plain run folder name (no paths, no hidden names)."""
+    if not run_id or "/" in run_id or "\\" in run_id or run_id.startswith("."):
+        raise RunError(f"not a run id: {run_id!r}")
+
+
+def _record(action: str, run_id: str, owner: str, by: str) -> None:
+    entry = {"at": now(), "action": action, "run": run_id, "owner": owner, "by": by}
+    with (runs_dir() / DELETIONS_LOG).open("a") as fh:
+        fh.write(json.dumps(entry) + "\n")
+
+
+def dependents(run_id: str) -> list[str]:
+    """Runs that used one of this run's outputs as an input."""
+    return [
+        m["id"]
+        for m in list_runs()
+        if any(e.get("from_run") == run_id for e in m.get("inputs", {}).values())
+    ]
+
+
+def delete_run(run_id: str, by: str) -> dict[str, Any]:
+    """Move a finished run to the bin. Returns its manifest."""
+    _check_run_id(run_id)
+    m = get_run(run_id)
+    if m["status"] in ACTIVE:
+        raise RunError(f"run {run_id} is still {m['status']}; wait for it to finish")
+    m.update(deleted_by=by, deleted_at=now())
+    write_manifest(m)
+    (runs_dir() / run_id).rename(trash_dir() / run_id)
+    _record("deleted", run_id, m.get("user", ""), by)
+    return m
+
+
+def list_trash() -> list[dict[str, Any]]:
+    """Manifests of runs in the bin, most recently deleted first."""
+    found = []
+    for folder in trash_dir().iterdir():
+        if (folder / MANIFEST).is_file():
+            found.append(json.loads((folder / MANIFEST).read_text()))
+    return sorted(found, key=lambda m: m.get("deleted_at", ""), reverse=True)
+
+
+def trashed_run(run_id: str) -> dict[str, Any]:
+    _check_run_id(run_id)
+    path = trash_dir() / run_id / MANIFEST
+    if not path.is_file():
+        raise RunError(f"no deleted run called {run_id!r}")
+    return json.loads(path.read_text())
+
+
+def restore_run(run_id: str, by: str) -> dict[str, Any]:
+    """Bring a run back from the bin."""
+    m = trashed_run(run_id)
+    if (runs_dir() / run_id).exists():
+        raise RunError(f"a run called {run_id} already exists")
+    (trash_dir() / run_id).rename(runs_dir() / run_id)
+    m.pop("deleted_by", None)
+    m.pop("deleted_at", None)
+    write_manifest(m)
+    _record("restored", run_id, m.get("user", ""), by)
+    return m
+
+
+def purge_run(run_id: str, by: str) -> None:
+    """Remove a run from the bin for good: its files are deleted."""
+    m = trashed_run(run_id)
+    shutil.rmtree(trash_dir() / run_id)
+    _record("purged", run_id, m.get("user", ""), by)
+
+
+def trash_days() -> int:
+    """How long deleted runs stay in the bin (SUSSEXBIOTOOLS_TRASH_DAYS, default 30)."""
+    try:
+        return max(0, int(os.environ.get("SUSSEXBIOTOOLS_TRASH_DAYS", "30")))
+    except ValueError:
+        return 30
+
+
+def purge_expired(days: int | None = None) -> list[str]:
+    """Purge runs deleted more than ``days`` ago (default: trash_days()). Returns their ids."""
+    days = trash_days() if days is None else days
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat(timespec="seconds")
+    expired = [m["id"] for m in list_trash() if m.get("deleted_at", "") <= cutoff]
+    purged = []
+    for run_id in expired:
+        try:
+            purge_run(run_id, by="automatic")
+            purged.append(run_id)
+        except OSError as e:  # one stubborn folder must not stop the rest
+            print(f"could not purge {run_id}: {e}", file=sys.stderr)
+    return purged
+
+
+def clean_uploads(hours: int = 24) -> int:
+    """Remove files uploaded on a tool form but never run, older than ``hours``."""
+    staging = runs_dir() / ".uploads"
+    if not staging.is_dir():
+        return 0
+    cutoff = time.time() - hours * 3600
+    removed = 0
+    for folder in staging.iterdir():
+        if folder.stat().st_mtime < cutoff:
+            shutil.rmtree(folder, ignore_errors=True)
+            removed += 1
+    return removed

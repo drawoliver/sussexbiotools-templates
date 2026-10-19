@@ -1,4 +1,4 @@
-# Copied from the sussexbiotools platform at commit d2e18a9. Do not edit.
+# Copied from the sussexbiotools platform at commit 37d69ba. Do not edit.
 """Run the lab's bioinformatics tools from the command line or a web page.
 
 What a tool needs, importable in one line:
