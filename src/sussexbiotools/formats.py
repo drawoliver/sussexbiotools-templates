@@ -1,4 +1,4 @@
-# Copied from the sussexbiotools platform at commit d2e18a9. Do not edit.
+# Copied from the sussexbiotools platform at commit 37d69ba. Do not edit.
 """File formats that tool inputs and outputs declare.
 
 Each format checks that a file really is what it claims to be and returns a

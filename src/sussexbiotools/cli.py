@@ -1,4 +1,4 @@
-# Copied from the sussexbiotools platform at commit d2e18a9. Do not edit.
+# Copied from the sussexbiotools platform at commit 37d69ba. Do not edit.
 """Command line: ``sussexbiotools run <tool> ...``, ``runs``, ``show``, ``serve``.
 
 Each tool gets its own ``run`` subcommand, generated from its signature, so
@@ -150,6 +150,78 @@ def execute(run_id: str) -> None:
     """Run a queued run in this process (used by the executors)."""
     m = runs.execute(run_id)
     raise typer.Exit(0 if m["status"] == "succeeded" else 1)
+
+
+def _who(by: str | None) -> str:
+    import getpass
+
+    return by or getpass.getuser()
+
+
+@app.command()
+def delete(
+    run_ids: Annotated[list[str], typer.Argument(help="Runs to move to the bin.")],
+    by: Annotated[str | None, typer.Option(help="Recorded as who deleted them.")] = None,
+) -> None:
+    """Move finished runs to the bin (restore them with `restore`)."""
+    failed = False
+    for run_id in run_ids:
+        try:
+            runs.delete_run(run_id, by=_who(by))
+            typer.echo(f"deleted {run_id}")
+        except runs.RunError as e:
+            typer.secho(str(e), fg="red", err=True)
+            failed = True
+    raise typer.Exit(1 if failed else 0)
+
+
+@app.command()
+def deleted() -> None:
+    """List runs in the bin."""
+    for m in runs.list_trash():
+        typer.echo(
+            f"{m['id']}  {m.get('user', '')}  deleted {m['deleted_at']} by {m['deleted_by']}"
+        )
+
+
+@app.command()
+def restore(
+    run_ids: Annotated[list[str], typer.Argument(help="Deleted runs to bring back.")],
+    by: Annotated[str | None, typer.Option(help="Recorded as who restored them.")] = None,
+) -> None:
+    """Bring runs back from the bin."""
+    for run_id in run_ids:
+        runs.restore_run(run_id, by=_who(by))
+        typer.echo(f"restored {run_id}")
+
+
+@app.command()
+def purge(
+    run_ids: Annotated[
+        list[str] | None, typer.Argument(help="Deleted runs to remove for good.")
+    ] = None,
+    expired: Annotated[
+        bool, typer.Option(help="Remove every run past the bin's retention period.")
+    ] = False,
+    by: Annotated[str | None, typer.Option(help="Recorded as who removed them.")] = None,
+) -> None:
+    """Remove runs from the bin for good (their files are deleted)."""
+    if expired:
+        gone = runs.purge_expired()
+        typer.echo(f"purged {len(gone)} expired run(s) (kept for {runs.trash_days()} days)")
+    for run_id in run_ids or []:
+        runs.purge_run(run_id, by=_who(by))
+        typer.echo(f"purged {run_id}")
+    if not expired and not run_ids:
+        raise typer.BadParameter("give run ids, or --expired")
+
+
+@app.command("clean-uploads")
+def clean_uploads(
+    hours: Annotated[int, typer.Option(help="Remove unused uploads older than this.")] = 24,
+) -> None:
+    """Remove files uploaded on tool forms but never used in a run."""
+    typer.echo(f"removed {runs.clean_uploads(hours)} unused upload(s)")
 
 
 @app.command("check-tools")

@@ -30,9 +30,27 @@ Import everything a tool needs from the toolkit:
 from sussexbiotools import FASTA, TSV, In, Out, Param, ToolError, tool
 ```
 
+## Setting up (once)
+
+If you have just made this repository from the template:
+
+1. Keep it named `sussexbiotools`, and private.
+2. **Settings > Collaborators**: add `drawoliver`, so Tony can review it.
+3. Send Tony your full name, Sussex email, GitHub username and this
+   repository's address. He sends back your name on the site, a deploy key
+   and, later, your personal sign-in link.
+4. **Settings > Deploy keys > Add deploy key**: paste the key, title
+   "sussexbiotools server", **Allow write access off**. The server can then
+   read this repository and nothing else.
+
+The guide's section 3 has the details.
+
 ## Getting a tool onto the site
 
 1. `uv run pytest` passes on your machine.
-2. Push. GitHub runs the same tests (the Actions tab, or the tick on your commit).
-3. Tell Tony the commit you want live. He reviews it and approves it; a few
-   minutes later it is on the site, or the site's footer says why not.
+2. Push to `main`. GitHub runs the same tests (the Actions tab, or the tick on your commit).
+3. Ask Tony to approve your newest commit (or send its full id). He reviews
+   it and approves that exact commit; a few minutes later it is on the site,
+   or the site's footer says why not.
+
+Pushing alone never changes the site: only an approved commit does.
