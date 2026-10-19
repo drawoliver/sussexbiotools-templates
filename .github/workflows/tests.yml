@@ -1,0 +1,24 @@
+# Runs your tests on every push and pull request. The lab's server runs them
+# again before any approved commit goes live.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - name: Install exactly the locked environment
+        run: uv sync --frozen
+      - name: Every tool loads
+        run: uv run sussexbiotools check-tools
+      - name: Style
+        run: |
+          uv run ruff check tools tests
+          uv run ruff format --check tools tests
+      - name: Tests (offline)
+        run: uv run pytest -m "not network"

@@ -1,0 +1,46 @@
+[project]
+name = "sussexbiotools-student"
+version = "0.1.0"
+description = "My tools for the lab's sussexbiotools platform."
+readme = "README.md"
+requires-python = ">=3.12"
+# Only packages the lab's server also has. Need another? Ask Tony.
+dependencies = [
+    "biopython>=1.88",
+    "click>=8",
+    "pyfamsa>=0.7",
+    "pyyaml>=6",
+    "typer>=0.27",
+]
+
+[project.scripts]
+sussexbiotools = "sussexbiotools.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.8,<0.9.0"]
+build-backend = "uv_build"
+
+# The toolkit in src/sussexbiotools is a copy of the platform's tool contract.
+[tool.uv.build-backend]
+module-name = "sussexbiotools"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = ["network: needs internet access (deselect with -m 'not network')"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# The toolkit is generated; do not lint or edit it.
+extend-exclude = ["src/sussexbiotools"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
