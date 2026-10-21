@@ -1,4 +1,4 @@
-# Copied from the sussexbiotools platform at commit 37d69ba. Do not edit.
+# Copied from the sussexbiotools platform at commit af50b68. Do not edit.
 """Command line: ``sussexbiotools run <tool> ...``, ``runs``, ``show``, ``serve``.
 
 Each tool gets its own ``run`` subcommand, generated from its signature, so

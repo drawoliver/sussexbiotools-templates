@@ -8,6 +8,11 @@ The full guide is **Writing sussexbiotools Tools** (ask Tony for the link).
 
 ## Start
 
+Either work in your web browser, with nothing to install: on this
+repository's page choose **Code > Codespaces > Create codespace on main**
+and wait a few minutes the first time; everything below is already
+installed. Or work on your own machine with `uv` and `git`. Either way:
+
 ```bash
 uv sync                                   # install everything, exactly as locked
 uv run pytest                             # the example's tests should pass
@@ -23,6 +28,10 @@ uv run sussexbiotools runs                # your runs (in runs/, ignored by git)
 | `tools/` | Your tools: one file (or folder) per tool. `sequence_lengths.py` is an example to copy. |
 | `tests/` | Tests for your tools. Every tool needs them. |
 | `src/sussexbiotools/` | The toolkit: a copy of the platform's tool contract. **Do not edit**; it is replaced when the platform changes. |
+| `.devcontainer/` | Sets up a codespace: the server's Python version, `uv`, and your locked packages. |
+
+In a codespace, commit and push before you stop work: a codespace left
+unused is deleted after 30 days, and anything not pushed goes with it.
 
 Import everything a tool needs from the toolkit:
 
