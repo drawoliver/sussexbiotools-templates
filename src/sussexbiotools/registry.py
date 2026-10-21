@@ -1,4 +1,4 @@
-# Copied from the sussexbiotools platform at commit 37d69ba. Do not edit.
+# Copied from the sussexbiotools platform at commit af50b68. Do not edit.
 """The tool contract: a tool is a typed Python function plus a decorator.
 
     @tool(id="famsa_align", version="0.1.0", title="Align sequences (FAMSA)")
